@@ -1,11 +1,21 @@
 # import all the libraries we will be using
 from flask import Flask, request
-from twilio import twiml
 from twilio.twiml.messaging_response import Message, MessagingResponse
 import wikipedia
+import yweather
+import wolframalpha
+
 # set up Flask to connect this code to the local host, which will
 # later be connected to the internet through Ngrok
 app = Flask(__name__)
+
+wolfram_app_id = "4U2HPE-VT3UY6383H"
+wolf = wolframalpha.Client(wolfram_app_id)
+client = yweather.Client()
+
+
+
+
 
 # Main method. When a POST request is sent to our local host through Ngrok
 # (which creates a tunnel to the web), this code will run. The Twilio service # sends the POST request - we will set this up on the Twilio website. So when # a message is sent over SMS to our Twilio number, this code will run
@@ -45,15 +55,34 @@ def getReply(message):
     # This is the variable where we will store our response
     answer = ""
 
-    # if "weather" in message:
-    #     answer = “get the weather using a weather API”
-    #
-    # # is the keyword "wolfram" in the message? Ex: "wolfram integral of x + 1"
-    # elif "wolfram" in message:
-	#   answer = “get a response from the Wolfram Alpha API”
+
+# is the keyword schedule in the message? Ex: "What is my A day schedule?"
+    # Will return class schedule
+    if "schedule" in message:
+        if "a day" in message:
+            answer = "Your A day schedule:\n4. Study hall\n1. Chinese\n2. Lang\n8. CSP\n5. AT CS\n6. AS"
+        elif "b day" in message:
+            answer = "Your B day schedule:\n3. Calc\n4. Study Hall\n1. Chinese\n7. Health\n8. CSP\n5. AT CS"
+        elif "c day" in message:
+            answer = "Your C day schedule:\n2. Lang\n3. Calc\n4. Study Hall\n6. AS\n7. Health\n8. CSP"
+        elif "d day" in message:
+            answer = "Your D day schedule:\n1. Chinese\n2. Lang\n3. Health\n5.AT CS\n6. AS\n7.  Health"
+
+    # is the keyword "wolfram" in the message? Ex: "wolfram integral of x + 1"
+    elif "wolfram" in message:
+      # remove the keyword "wolfram" from the message
+        message = removeHead(message, "wolfram")
+
+        # send the message to the wolfram service, get a response
+        res = wolf.query(message)
+        try:
+            answer = next(res.results).text
+        except:
+            # Handle errors such as request not found error
+            answer = "Request was not found using wolfram. Be more specific?"
 
     # is the keyword "wiki" in the message? Ex: "wiki donald trump"
-    if "wiki" in message:
+    elif "wiki" in message:
         # remove the keyword "wiki" from the message
         message = removeHead(message, "wiki")
 
@@ -66,6 +95,20 @@ def getReply(message):
      # named donald)
             answer = "Request was not found using wiki. Be more specific?"
 
+    # is the keyword "weather" in the message? Ex: "weather for New York City, NY
+    elif "weather" in message:
+
+        # remove the keyword to just get the address/place
+        message = removeHead(message, "weather").strip()
+        message = removeHead(message, "for").strip()
+        # using the yWeather API functions, get the weather data. Check out their docs for more info
+        try:
+            woeID = client.fetch_woeid(message)
+            lid = client.fetch_lid('23454')
+            myWeather = client.fetch_weather(lid)
+            answer = "" + myWeather[title] + "\n" + myWeather[condition][temp] + "\n" + myWeather[condition][text] + "\n" + "Humidity: " + myWeather[atmosphere][humidity] + "\n" + "Wind: " + myWeather[wind][speed] + "\n" + "Wind chill: " + myWeather[wind][chill] + "\n"
+        except:
+            answer = "Something went wrong getting the weather :|"
     # the message contains no keyword. Display a help prompt to identify possible
     # commands
     else:
